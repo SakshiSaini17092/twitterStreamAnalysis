@@ -1,16 +1,11 @@
 package covid;
 
 import backtype.storm.Config;
-import backtype.storm.LocalCluster;
-import backtype.storm.StormSubmitter;
 import backtype.storm.spout.SpoutOutputCollector;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
-import backtype.storm.testing.TestWordSpout;
 import backtype.storm.topology.OutputFieldsDeclarer;
-import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.topology.base.BaseRichSpout;
-import backtype.storm.topology.base.BaseRichBolt;
 import backtype.storm.tuple.Fields;
 import backtype.storm.tuple.Tuple;
 import backtype.storm.tuple.Values;
@@ -38,7 +33,6 @@ public class TweetSpout extends BaseRichSpout
   String custkey, custsecret;
   String accesstoken, accesssecret;
 
-  // To output tuples from spout to the next stage bolt
   SpoutOutputCollector collector;
   TwitterStream twitterStream;
   LinkedBlockingQueue<tweetObject> queue = null;
@@ -49,8 +43,6 @@ public class TweetSpout extends BaseRichSpout
   // Class for listening on the tweet stream - for twitter4j
   private class TweetListener implements StatusListener {
 
-
-    // Implement the callback function when a tweet arrives
     @Override
     public void onStatus(Status status)
     {
@@ -58,7 +50,6 @@ public class TweetSpout extends BaseRichSpout
       long userID = status.getUser().getId();
       String tweet = status.getText();
       tweetObject obj = new tweetObject(userID, tweet);
-      // logger.info("status--------" + status);
       queue.offer(obj);
     }
 
@@ -89,14 +80,7 @@ public class TweetSpout extends BaseRichSpout
     }
   };
 
-  /**
-   * Constructor for tweet spout that accepts the credentials
-   */
-  public TweetSpout(
-      String                key,
-      String                secret,
-      String                token,
-      String                tokensecret)
+  public TweetSpout( String key, String secret, String token, String tokensecret)
   {
     custkey = key;
     custsecret = secret;
@@ -105,91 +89,51 @@ public class TweetSpout extends BaseRichSpout
   }
 
   @Override
-  public void open(
-      Map                     map,
-      TopologyContext         topologyContext,
-      SpoutOutputCollector    spoutOutputCollector)
+  public void open( Map map, TopologyContext topologyContext, SpoutOutputCollector spoutOutputCollector)
   {
-    // create the buffer to block tweets
     queue = new LinkedBlockingQueue<tweetObject>(10000);
-
-    // Date date =  new Date();
-    // long cuTime =  date.getTime();
-
-    // timeMilli = date.sgetTime();
-    // save the output collector for emitting tuples
     collector = spoutOutputCollector;
 
-
-    // build the config with credentials for twitter 4j
     ConfigurationBuilder config =
         new ConfigurationBuilder()
-               .setOAuthConsumerKey(custkey)
+                .setOAuthConsumerKey(custkey)
                .setOAuthConsumerSecret(custsecret)
                .setOAuthAccessToken(accesstoken)
                .setOAuthAccessTokenSecret(accesssecret);
 
-    // create the twitter stream factory with the config
-    TwitterStreamFactory fact =
-        new TwitterStreamFactory(config.build());
-
-    // get an instance of twitter stream
+    TwitterStreamFactory fact = new TwitterStreamFactory(config.build());
     twitterStream = fact.getInstance();
-
-    // provide the handler for twitter stream
     twitterStream.addListener(new TweetListener());
-
-    // start the sampling of tweets
     twitterStream.sample();
   }
 
   @Override
-  public void nextTuple()
-  {
-    // try to pick a tweet from the buffer
-    // logger.info("number of elements in a queue!! " + queue.size());
-
+  public void nextTuple(){
     tweetObject ret = queue.poll();
-
-    // if no tweet is available, wait for 50 ms and return
     if (ret==null)
     {
       Utils.sleep(50);
       return;
     }
-
-    // now emit the tweet to next stage bolt
     collector.emit(new Values(ret));
   }
 
   @Override
   public void close()
   {
-    // shutdown the stream - when we are going to exit
     twitterStream.shutdown();
   }
-
-  /**
-   * Component specific configuration
-   */
   @Override
   public Map<String, Object> getComponentConfiguration()
   {
-    // create the component config
     Config ret = new Config();
-
-    // set the parallelism for this spout to be 1
     ret.setMaxTaskParallelism(1);
-
     return ret;
   }
 
   @Override
-  public void declareOutputFields(
-      OutputFieldsDeclarer outputFieldsDeclarer)
+  public void declareOutputFields( OutputFieldsDeclarer outputFieldsDeclarer)
   {
-    // tell storm the schema of the output tuple for this spout
-    // tuple consists of a single column called 'tweet'
     outputFieldsDeclarer.declare(new Fields("tweet"));
   }
 }

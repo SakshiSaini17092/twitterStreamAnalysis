@@ -5,19 +5,11 @@ import covid.ParserBolt;
 
 import backtype.storm.Config;
 import backtype.storm.LocalCluster;
-import backtype.storm.StormSubmitter;
-import backtype.storm.spout.SpoutOutputCollector;
-import backtype.storm.task.OutputCollector;
-import backtype.storm.task.TopologyContext;
-import backtype.storm.testing.TestWordSpout;
-import backtype.storm.topology.OutputFieldsDeclarer;
 import backtype.storm.topology.TopologyBuilder;
 import backtype.storm.topology.base.BaseRichSpout;
-import backtype.storm.topology.base.BaseRichBolt;
-import backtype.storm.tuple.Fields;
-import backtype.storm.tuple.Tuple;
-import backtype.storm.tuple.Values;
 import backtype.storm.utils.Utils;
+import backtype.storm.tuple.Fields;
+
 import org.apache.log4j.Logger;
 
 import covid.ReportBolt;
@@ -48,15 +40,13 @@ public class twitterTopology{
 
     builder.setBolt("reporter-bolt", new ReportBolt(), 1).globalGrouping("count-bolt");
     Config conf = new Config();
-    // conf.setDebug(true);
-
     conf.setMaxTaskParallelism(3);
     LocalCluster cluster = new LocalCluster();
 
-    cluster.submitTopology("tweet-word-count", conf, builder.createTopology());
+    cluster.submitTopology("user-count", conf, builder.createTopology());
     Utils.sleep(2500000);
 
-    cluster.killTopology("tweet-word-count");
+    cluster.killTopology("user-count");
     cluster.shutdown();
 
   }
